@@ -62,7 +62,7 @@ const UserGuideModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
             <div className="w-8 h-8 rounded-full bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] border border-[#D4AF37]/20 shrink-0">4</div>
             <div>
               <p className="font-bold text-white uppercase tracking-wider mb-1">Camera Angle</p>
-              <p>Góc máy quyết định cảm xúc của cảnh quay. Bạn có thể chọn các góc có sẵn hoặc tự nhập góc máy tùy chỉnh.</p>
+              <p>Góc máy quyết định cảm xúc của cảnh quay. Bạn có thể chọn các góc có sẵn hoặc tự nhập góc máy tùy chỉnh (sẽ ưu tiên custom).</p>
             </div>
           </div>
         </div>
@@ -86,6 +86,7 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<string>("");
   const [results, setResults] = useState<GeneratedImage[]>([]);
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   
   // Form State
   const [prompt, setPrompt] = useState<string>("");
@@ -114,6 +115,12 @@ const App: React.FC = () => {
     }
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopyFeedback(id);
+    setTimeout(() => setCopyFeedback(null), 2000);
+  };
+
   const generateImage = async () => {
     if (loading) return;
     if (!apiKey) {
@@ -130,10 +137,18 @@ const App: React.FC = () => {
       const lensSpec = LENS_SPECS[selectedLens];
       const cameraSpec = CAMERA_SPECS[selectedCamera];
       
-      let angleText = "";
+      let angleLabel = "";
+      let anglePromptPart = "";
+
       if (isAngleEnabled) {
-        const angleSpec = ANGLE_SPECS[selectedAngle];
-        angleText = `Camera Angle: ${angleSpec.prompt} ${customAngle ? `, custom position: ${customAngle}` : ''}`;
+        if (customAngle.trim() !== "") {
+          angleLabel = customAngle;
+          anglePromptPart = `Camera Angle: Custom positioning, ${customAngle}.`;
+        } else {
+          const angleSpec = ANGLE_SPECS[selectedAngle];
+          angleLabel = selectedAngle;
+          anglePromptPart = `Camera Angle: ${angleSpec.prompt}.`;
+        }
       }
 
       let focalPhysics = "";
@@ -151,15 +166,14 @@ const App: React.FC = () => {
         focalPhysics = `close-up portrait optics (${selectedFocal}mm), extreme lens compression, tight facial detail, massive background blur, shallow focus on the eyes.`;
       }
 
-      // Refined Anamorphic: more subtle, avoiding overkill
       const anamorphicText = isAnamorphic 
-        ? "subtle anamorphic 2x characteristics, slight oval bokeh in out-of-focus areas, gentle horizontal anamorphic lens flares, classic cinemascope optical rendering." 
+        ? "subtle anamorphic 2x characteristics, slight oval bokeh, gentle horizontal lens flares, classic cinemascope rendering." 
         : "spherical lens rendering, round circular bokeh, clean professional glass optics.";
 
       const fullPrompt = `MASTER_CINEMA_FRAME. 
 Shot on ${selectedCamera} (${cameraSpec.desc}). 
 Optics: ${selectedLens} (${lensSpec.desc}) at ${selectedFocal}mm.
-${angleText}
+${anglePromptPart}
 Optical Physics: ${focalPhysics} ${lensSpec.prompt} ${anamorphicText}
 Atmosphere: Professional cinematic lighting, volumetric shadows, film-grade color science.
 Subject: ${prompt}
@@ -203,11 +217,12 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
           id: Date.now().toString(),
           url: foundImageUrl,
           prompt,
+          fullPrompt,
           settings: {
             camera: selectedCamera,
             lens: selectedLens,
             focalLength: selectedFocal,
-            angle: selectedAngle,
+            angle: angleLabel,
             ratio: selectedRatio,
             size: selectedSize
           },
@@ -253,7 +268,6 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-center md:justify-end">
-            {/* Manual API Key Textbox */}
             <div className="relative group w-full max-w-[280px]">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                 <div className={`w-1.5 h-1.5 rounded-full ${apiKey.length > 20 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 animate-pulse'}`}></div>
@@ -272,7 +286,6 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
               </div>
             </div>
 
-            {/* Clear All Button */}
             <button 
               onClick={clearResults}
               disabled={results.length === 0}
@@ -412,9 +425,12 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
                       <div key={angle} className="relative group">
                         <button
                           type="button"
-                          onClick={() => setSelectedAngle(angle as CameraAngle)}
+                          onClick={() => {
+                            setSelectedAngle(angle as CameraAngle);
+                            setCustomAngle(""); // Xóa custom khi chọn preset
+                          }}
                           className={`w-full text-[10px] p-3 rounded-xl border transition-all text-left ${
-                            selectedAngle === angle 
+                            selectedAngle === angle && customAngle === ""
                               ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-white shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
                               : 'border-white/5 bg-white/[0.02] text-gray-500 hover:border-white/20'
                           }`}
@@ -435,9 +451,12 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
                       type="text"
                       value={customAngle}
                       onChange={(e) => setCustomAngle(e.target.value)}
-                      placeholder="Góc máy tùy chỉnh (vd: 30 degree low tilt)..."
-                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-[10px] text-gray-300 focus:outline-none focus:border-[#D4AF37]/50 transition-all"
+                      placeholder="Góc máy tùy chỉnh (vd: low angle 30 degree)..."
+                      className={`w-full bg-white/[0.03] border rounded-xl py-3 px-4 text-[10px] text-gray-300 focus:outline-none transition-all ${customAngle !== "" ? 'border-[#D4AF37]/50 ring-1 ring-[#D4AF37]/20' : 'border-white/10'}`}
                     />
+                    {customAngle !== "" && (
+                      <p className="text-[8px] text-[#D4AF37] mt-1 uppercase tracking-widest ml-1 animate-pulse">Custom angle active - Presets ignored</p>
+                    )}
                   </div>
                 </>
               )}
@@ -592,6 +611,13 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
                         <img src={img.url} className="w-full h-auto object-contain max-h-[80vh]" alt={`Shot ${shotNumber}`} />
                         <div className="absolute bottom-6 right-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
+                            onClick={() => copyToClipboard(img.fullPrompt, img.id)}
+                            className={`w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center transition-all shadow-xl ${copyFeedback === img.id ? 'bg-green-600 text-white' : 'bg-white/10 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black'}`}
+                            title="Copy Master Prompt"
+                          >
+                            <i className={`fas ${copyFeedback === img.id ? 'fa-check' : 'fa-copy'}`}></i>
+                          </button>
+                          <button 
                             onClick={() => deleteShot(img.id)}
                             className="w-12 h-12 rounded-full bg-red-600/20 backdrop-blur-md text-red-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-xl"
                             title="Delete Shot"
@@ -623,11 +649,17 @@ Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
                         </div>
                       </div>
                       
-                      <div className="p-5 bg-white/[0.01] rounded-2xl border border-white/5">
+                      <div className="p-5 bg-white/[0.01] rounded-2xl border border-white/5 relative group/prompt">
                         <p className="text-[11px] text-gray-500 font-light leading-relaxed">
                           <span className="text-white/20 font-bold mr-2 uppercase text-[9px]">Synopsis //</span>
                           "{img.prompt}"
                         </p>
+                        <button 
+                          onClick={() => copyToClipboard(img.fullPrompt, img.id)}
+                          className="absolute top-2 right-2 text-[8px] text-gray-700 uppercase tracking-widest hover:text-[#D4AF37] transition-all opacity-0 group-hover/prompt:opacity-100"
+                        >
+                          <i className="fas fa-magic mr-1"></i> Copy Master Prompt
+                        </button>
                       </div>
                     </div>
                   );

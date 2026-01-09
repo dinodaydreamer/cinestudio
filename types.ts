@@ -42,11 +42,12 @@ export interface GeneratedImage {
   id: string;
   url: string;
   prompt: string;
+  fullPrompt: string; // Lưu lại prompt đầy đủ để copy
   settings: {
     camera: CameraBody;
     lens: LensType;
     focalLength: FocalLength;
-    angle: CameraAngle;
+    angle: CameraAngle | string;
     ratio: AspectRatio;
     size: ImageSize;
   };
