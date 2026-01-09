@@ -62,7 +62,7 @@ const UserGuideModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ is
             <div className="w-8 h-8 rounded-full bg-[#D4AF37]/10 flex items-center justify-center text-[#D4AF37] border border-[#D4AF37]/20 shrink-0">4</div>
             <div>
               <p className="font-bold text-white uppercase tracking-wider mb-1">Camera Angle</p>
-              <p>Góc máy quyết định cảm xúc của cảnh quay. Góc thấp (Low Angle) cho sự mạnh mẽ, góc cao (High Angle) cho sự nhỏ bé.</p>
+              <p>Góc máy quyết định cảm xúc của cảnh quay. Bạn có thể chọn các góc có sẵn hoặc tự nhập góc máy tùy chỉnh.</p>
             </div>
           </div>
         </div>
@@ -92,7 +92,9 @@ const App: React.FC = () => {
   const [selectedCamera, setSelectedCamera] = useState<CameraBody>(CameraBody.ARRI_ALEXA_35);
   const [selectedLens, setSelectedLens] = useState<LensType>(LensType.ZEISS_ULTRA);
   const [selectedFocal, setSelectedFocal] = useState<FocalLength>(35);
+  const [isAngleEnabled, setIsAngleEnabled] = useState<boolean>(true);
   const [selectedAngle, setSelectedAngle] = useState<CameraAngle>(CameraAngle.EYE_LEVEL);
+  const [customAngle, setCustomAngle] = useState<string>("");
   const [selectedRatio, setSelectedRatio] = useState<AspectRatio>("16:9");
   const [selectedSize, setSelectedSize] = useState<ImageSize>("1K");
   const [isAnamorphic, setIsAnamorphic] = useState<boolean>(false);
@@ -127,7 +129,12 @@ const App: React.FC = () => {
       
       const lensSpec = LENS_SPECS[selectedLens];
       const cameraSpec = CAMERA_SPECS[selectedCamera];
-      const angleSpec = ANGLE_SPECS[selectedAngle];
+      
+      let angleText = "";
+      if (isAngleEnabled) {
+        const angleSpec = ANGLE_SPECS[selectedAngle];
+        angleText = `Camera Angle: ${angleSpec.prompt} ${customAngle ? `, custom position: ${customAngle}` : ''}`;
+      }
 
       let focalPhysics = "";
       if (selectedFocal === 8) {
@@ -144,18 +151,19 @@ const App: React.FC = () => {
         focalPhysics = `close-up portrait optics (${selectedFocal}mm), extreme lens compression, tight facial detail, massive background blur, shallow focus on the eyes.`;
       }
 
+      // Refined Anamorphic: more subtle, avoiding overkill
       const anamorphicText = isAnamorphic 
-        ? "anamorphic 2x squeeze, horizontal cyan lens flares, oval shaped bokeh, cinemascope aesthetic." 
-        : "spherical lens rendering, round circular bokeh, clean professional glass.";
+        ? "subtle anamorphic 2x characteristics, slight oval bokeh in out-of-focus areas, gentle horizontal anamorphic lens flares, classic cinemascope optical rendering." 
+        : "spherical lens rendering, round circular bokeh, clean professional glass optics.";
 
       const fullPrompt = `MASTER_CINEMA_FRAME. 
 Shot on ${selectedCamera} (${cameraSpec.desc}). 
 Optics: ${selectedLens} (${lensSpec.desc}) at ${selectedFocal}mm.
-Camera Angle: ${angleSpec.prompt}
+${angleText}
 Optical Physics: ${focalPhysics} ${lensSpec.prompt} ${anamorphicText}
-Atmosphere: Professional studio lighting, volumetric shadows, film-grade color palette.
+Atmosphere: Professional cinematic lighting, volumetric shadows, film-grade color science.
 Subject: ${prompt}
-Highest fidelity, 8k raw, authentic film grain, professional cinematography.`;
+Highest fidelity, 8k raw, authentic film grain, master cinematography.`;
 
       const contents = {
         parts: [
@@ -381,36 +389,58 @@ Highest fidelity, 8k raw, authentic film grain, professional cinematography.`;
             </div>
 
             {/* Camera Angle Selection */}
-            <div>
-              <div className="flex justify-between items-center mb-4">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
                 <label className="text-[10px] uppercase tracking-[0.2em] text-[#D4AF37] font-bold flex items-center gap-2">
                   <i className="fas fa-camera"></i> 04. Camera Angle
                 </label>
-                <span className="text-[9px] font-mono text-gray-600 bg-white/5 px-2 py-0.5 rounded uppercase">Composition</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] text-gray-600 font-bold uppercase tracking-widest">{isAngleEnabled ? 'Enabled' : 'Disabled'}</span>
+                  <button 
+                    onClick={() => setIsAngleEnabled(!isAngleEnabled)}
+                    className={`w-8 h-4 rounded-full transition-all relative ${isAngleEnabled ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${isAngleEnabled ? 'right-0.5' : 'left-0.5'}`}></div>
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {ANGLES.map(angle => (
-                  <div key={angle} className="relative group">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAngle(angle as CameraAngle)}
-                      className={`w-full text-[10px] p-3 rounded-xl border transition-all text-left ${
-                        selectedAngle === angle 
-                          ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-white shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
-                          : 'border-white/5 bg-white/[0.02] text-gray-500 hover:border-white/20'
-                      }`}
-                    >
-                      <span className="font-medium truncate">{angle}</span>
-                    </button>
-                    <InfoTooltip 
-                      title={angle}
-                      desc={ANGLE_SPECS[angle].desc}
-                      detail={ANGLE_SPECS[angle].detail}
-                      usage={ANGLE_SPECS[angle].usage}
+              
+              {isAngleEnabled && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ANGLES.map(angle => (
+                      <div key={angle} className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAngle(angle as CameraAngle)}
+                          className={`w-full text-[10px] p-3 rounded-xl border transition-all text-left ${
+                            selectedAngle === angle 
+                              ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-white shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
+                              : 'border-white/5 bg-white/[0.02] text-gray-500 hover:border-white/20'
+                          }`}
+                        >
+                          <span className="font-medium truncate">{angle}</span>
+                        </button>
+                        <InfoTooltip 
+                          title={angle}
+                          desc={ANGLE_SPECS[angle].desc}
+                          detail={ANGLE_SPECS[angle].detail}
+                          usage={ANGLE_SPECS[angle].usage}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <input 
+                      type="text"
+                      value={customAngle}
+                      onChange={(e) => setCustomAngle(e.target.value)}
+                      placeholder="Góc máy tùy chỉnh (vd: 30 degree low tilt)..."
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 px-4 text-[10px] text-gray-300 focus:outline-none focus:border-[#D4AF37]/50 transition-all"
                     />
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
 
             {/* Global Settings */}
@@ -458,7 +488,7 @@ Highest fidelity, 8k raw, authentic film grain, professional cinematography.`;
                       className="w-4 h-4 accent-[#D4AF37] rounded"
                     />
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Anamorphic</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Anamorphic (Subtle)</span>
                     </div>
                   </label>
                 </div>
